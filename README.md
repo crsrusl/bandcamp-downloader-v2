@@ -1,12 +1,12 @@
 ## Bandcamp downloader V2
 
-The original Bandcamp downloader worked well, but I wanted something which would work without requiring the nodejs to be installed on the users' system.
+The original Bandcamp downloader worked well, but I wanted something which would work without requiring nodejs to be installed on the users' system.
 
-Version 2 of the Bandcamp downloader is written entirely in Golang and can be compiled to run as a standalone on a range of different platforms, e.g. Windows, Mac, Linux.
+Version 2 of the Bandcamp downloader is written entirely in Golang and can be compiled to run on a range of different platforms, e.g. Windows, Mac, Linux.
 
 To get started, clone this repo and run the application, being sure to include the URL you want to download the music from `go run main.go [url]`.
 
-The application can download from most Bandcamp urls, including:
+The application can download tracks from most Bandcamp urls, including:
 - Album Urls e.g. https://[artist].bandcamp.com/album/[album]
 - Track Urls e.g. https://[artist].bandcamp.com/track/[name]
 
