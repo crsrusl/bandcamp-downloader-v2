@@ -1,5 +1,15 @@
 package structs
 
+type Mp3struct struct {
+	Artist       string
+	Title        string
+	AlbumTitle   string
+	ArtID        int
+	Image        string
+	AlbumArtwork string
+	BaseFilepath string
+}
+
 type TrackData struct {
 	IsBandMember       interface{} `json:"is_band_member"`
 	ClientIDSig        string      `json:"client_id_sig"`

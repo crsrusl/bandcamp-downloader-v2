@@ -15,16 +15,6 @@ import (
 	"sync"
 )
 
-type mp3struct struct {
-	artist       string
-	title        string
-	albumTitle   string
-	artID        int
-	image        string
-	albumArtwork string
-	baseFilepath string
-}
-
 func main() {
 	argsURL := os.Args[1]
 	getArtistPage(argsURL)
@@ -57,50 +47,53 @@ func getArtistPage(url string) {
 			log.Fatal(err)
 		}
 
-		mp3 := mp3struct{
-			artist:     trackDataJson.Artist,
-			albumTitle: trackDataJson.Current.Title,
-			artID:      trackDataJson.Current.ArtID,
+		mp3 := structs.Mp3struct{
+			Artist:     trackDataJson.Artist,
+			AlbumTitle: trackDataJson.Current.Title,
+			ArtID:      trackDataJson.Current.ArtID,
 		}
 
-		mp3.albumArtwork = fmt.Sprint("https://f4.bcbits.com/img/a", mp3.artID, "_16.jpg")
-		mp3.baseFilepath = fmt.Sprint("./", removeAlphaNum(mp3.artist), "-", removeAlphaNum(mp3.albumTitle))
+		mp3.AlbumArtwork = fmt.Sprint("https://f4.bcbits.com/img/a", mp3.ArtID, "_16.jpg")
+		mp3.BaseFilepath = fmt.Sprint("./", removeAlphaNum(mp3.Artist), "-", removeAlphaNum(mp3.AlbumTitle))
 
-		err := os.Mkdir(mp3.baseFilepath, 0700)
+		err := os.Mkdir(mp3.BaseFilepath, 0700)
 		if err != nil {
 			panic(err)
 		}
 
-		image, err := downloadImage(mp3.baseFilepath+"/"+removeAlphaNum(mp3.albumTitle)+".jpg", mp3.albumArtwork)
+		image, err := downloadImage(mp3.BaseFilepath+"/"+removeAlphaNum(mp3.AlbumTitle)+".jpg", mp3.AlbumArtwork)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		mp3.image = image
+		mp3.Image = image
 
 		var wg sync.WaitGroup
 
 		for _, v := range trackDataJson.Trackinfo {
 			wg.Add(1)
-			mp3.title = v.Title
-			filePath := mp3.baseFilepath + "/" + removeAlphaNum(mp3.artist) + "-" + removeAlphaNum(mp3.title) + ".mp3"
+			mp3.Title = v.Title
+			filePath := mp3.BaseFilepath + "/" + removeAlphaNum(mp3.Artist) + "-" + removeAlphaNum(mp3.Title) + ".mp3"
 			url := v.File.Mp3128
 			go downloadMp3(filePath, url, mp3, &wg)
 		}
 
 		wg.Wait()
 
-		err2 := os.Remove(mp3.image)
+		err2 := os.Remove(mp3.Image)
 		if err2 != nil {
 			log.Fatal(err2)
 		}
+
+		fmt.Println("...Done")
 	})
 }
 
-func downloadMp3(filepath string, url string, mp3 mp3struct, wg *sync.WaitGroup) {
+func downloadMp3(filepath string, url string, mp3 structs.Mp3struct, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	fmt.Println("Downloading...", mp3.artist, " - ", mp3.title)
+	fmt.Println("Downloading...", mp3.Artist, " - ", mp3.Title)
+
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err)
@@ -117,13 +110,13 @@ func downloadMp3(filepath string, url string, mp3 mp3struct, wg *sync.WaitGroup)
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	
 	tag, err := id3v2.Open(filepath, id3v2.Options{Parse: true})
 	if err != nil {
 		log.Fatal("Error while opening mp3 file: ", err)
 	}
 
-	artwork, err := ioutil.ReadFile(mp3.image)
+	artwork, err := ioutil.ReadFile(mp3.Image)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -137,9 +130,9 @@ func downloadMp3(filepath string, url string, mp3 mp3struct, wg *sync.WaitGroup)
 	}
 
 	tag.AddAttachedPicture(pic)
-	tag.SetArtist(mp3.artist)
-	tag.SetTitle(mp3.title)
-	tag.SetAlbum(mp3.albumTitle)
+	tag.SetArtist(mp3.Artist)
+	tag.SetTitle(mp3.Title)
+	tag.SetAlbum(mp3.AlbumTitle)
 
 	if err = tag.Save(); err != nil {
 		log.Fatal("Error while saving a tag: ", err)
