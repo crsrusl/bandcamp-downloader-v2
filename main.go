@@ -51,22 +51,19 @@ func getArtistPage(url string) {
 			Artist:     trackDataJson.Artist,
 			AlbumTitle: trackDataJson.Current.Title,
 			ArtID:      trackDataJson.Current.ArtID,
+			AlbumArtwork: fmt.Sprint("https://f4.bcbits.com/img/a", trackDataJson.Current.ArtID, "_16.jpg"),
+			BaseFilepath: fmt.Sprint("./", removeAlphaNum(trackDataJson.Artist), "-", removeAlphaNum(trackDataJson.Current.Title)),
 		}
-
-		mp3.AlbumArtwork = fmt.Sprint("https://f4.bcbits.com/img/a", mp3.ArtID, "_16.jpg")
-		mp3.BaseFilepath = fmt.Sprint("./", removeAlphaNum(mp3.Artist), "-", removeAlphaNum(mp3.AlbumTitle))
 
 		err := os.Mkdir(mp3.BaseFilepath, 0700)
-		if err != nil {
-			panic(err)
-		}
-
-		image, err := downloadImage(mp3.BaseFilepath+"/"+removeAlphaNum(mp3.AlbumTitle)+".jpg", mp3.AlbumArtwork)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		mp3.Image = image
+		mp3.Image, err = downloadImage(mp3.BaseFilepath+"/"+removeAlphaNum(mp3.AlbumTitle)+".jpg", mp3.AlbumArtwork)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		var wg sync.WaitGroup
 
@@ -74,15 +71,14 @@ func getArtistPage(url string) {
 			wg.Add(1)
 			mp3.Title = v.Title
 			filePath := mp3.BaseFilepath + "/" + removeAlphaNum(mp3.Artist) + "-" + removeAlphaNum(mp3.Title) + ".mp3"
-			url := v.File.Mp3128
-			go downloadMp3(filePath, url, mp3, &wg)
+			go downloadMp3(filePath, v.File.Mp3128, mp3, &wg)
 		}
 
 		wg.Wait()
 
-		err2 := os.Remove(mp3.Image)
-		if err2 != nil {
-			log.Fatal(err2)
+		err = os.Remove(mp3.Image)
+		if err != nil {
+			log.Fatal(err)
 		}
 
 		fmt.Println("...Done")
@@ -113,7 +109,7 @@ func downloadMp3(filepath string, url string, mp3 structs.Mp3struct, wg *sync.Wa
 	
 	tag, err := id3v2.Open(filepath, id3v2.Options{Parse: true})
 	if err != nil {
-		log.Fatal("Error while opening mp3 file: ", err)
+		log.Fatal(err)
 	}
 
 	artwork, err := ioutil.ReadFile(mp3.Image)
@@ -135,10 +131,12 @@ func downloadMp3(filepath string, url string, mp3 structs.Mp3struct, wg *sync.Wa
 	tag.SetAlbum(mp3.AlbumTitle)
 
 	if err = tag.Save(); err != nil {
-		log.Fatal("Error while saving a tag: ", err)
+		log.Fatal(err)
 	}
 
-	tag.Close()
+	if err = tag.Close(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func downloadImage(filepath string, url string) (string, error) {
