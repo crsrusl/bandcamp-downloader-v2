@@ -13,6 +13,7 @@ import (
 	"os"
 	"regexp"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -53,9 +54,9 @@ func getArtistPage(url string) {
 		}
 
 		mp3 := structs.Mp3struct{
-			Artist:     trackDataJson.Artist,
-			AlbumTitle: trackDataJson.Current.Title,
-			ArtID:      trackDataJson.Current.ArtID,
+			Artist:       trackDataJson.Artist,
+			AlbumTitle:   trackDataJson.Current.Title,
+			ArtID:        trackDataJson.Current.ArtID,
 			AlbumArtwork: fmt.Sprint("https://f4.bcbits.com/img/a", trackDataJson.Current.ArtID, "_16.jpg"),
 			BaseFilepath: fmt.Sprint("./", removeAlphaNum(trackDataJson.Artist), "-", removeAlphaNum(trackDataJson.Current.Title)),
 		}
@@ -72,11 +73,31 @@ func getArtistPage(url string) {
 
 		var wg sync.WaitGroup
 
+		rot := [4]string{"|", "/", "—", "\\"}
+		ticker := time.NewTicker(200 * time.Millisecond)
+
+		var downloads []string
+
+		pos := 1
+		go func() {
+			fmt.Print("\033[s")
+
+			for range ticker.C {
+				if pos > 3 {
+					pos = 0
+				}
+				fmt.Print("\033[u\033[K")
+				fmt.Print("\r", downloads, " ", rot[pos])
+				pos = pos + 1
+			}
+		}()
+
+
 		for _, v := range trackDataJson.Trackinfo {
 			wg.Add(1)
 			mp3.Title = v.Title
 			filePath := mp3.BaseFilepath + "/" + removeAlphaNum(mp3.Artist) + "-" + removeAlphaNum(mp3.Title) + ".mp3"
-			go downloadMp3(filePath, v.File.Mp3128, mp3, &wg)
+			go downloadMp3(filePath, v.File.Mp3128, mp3, &wg, &downloads)
 		}
 
 		wg.Wait()
@@ -86,14 +107,16 @@ func getArtistPage(url string) {
 			log.Fatal(err)
 		}
 
-		fmt.Println("...Done")
+		ticker.Stop()
+
+		fmt.Println("\r...Done")
 	})
 }
 
-func downloadMp3(filepath string, url string, mp3 structs.Mp3struct, wg *sync.WaitGroup) {
+func downloadMp3(filepath string, url string, mp3 structs.Mp3struct, wg *sync.WaitGroup, downloads *[]string) {
 	defer wg.Done()
 
-	fmt.Println("Downloading...", mp3.Artist, " - ", mp3.Title)
+	*downloads = append(*downloads, fmt.Sprintf("\"%s - %s\"", mp3.Artist, mp3.Title))
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -111,7 +134,7 @@ func downloadMp3(filepath string, url string, mp3 structs.Mp3struct, wg *sync.Wa
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	tag, err := id3v2.Open(filepath, id3v2.Options{Parse: true})
 	if err != nil {
 		log.Fatal(err)
