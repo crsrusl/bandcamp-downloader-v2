@@ -1,13 +1,14 @@
 package structs
 
 type Mp3struct struct {
-	Artist       string
-	Title        string
-	AlbumTitle   string
-	ArtID        int
-	Image        string
-	AlbumArtwork string
-	BaseFilepath string
+	Artist               string
+	Title                string
+	AlbumTitle           string
+	ArtID                int
+	Image                string
+	AlbumArtwork         string
+	BaseFilepath         string
+	AlbumArtworkFilepath string
 }
 
 type TrackData struct {

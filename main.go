@@ -6,6 +6,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bogem/id3v2"
 	"github.com/crsrusl/bandcamp-downloader-v2/structs"
+	"github.com/inancgumus/screen"
 	"io"
 	"io/ioutil"
 	"log"
@@ -26,72 +27,44 @@ func main() {
 	getArtistPage(argsURL)
 }
 
-func getArtistPage(url string) {
-	fmt.Println("Getting... ", url)
-
-	res, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func getTrackList(doc *goquery.Document) {
 	doc.Find("script[data-tralbum]").Each(func(i int, s *goquery.Selection) {
+		var trackDataJson structs.TrackData
+
 		trackDataString, _ := s.Attr("data-tralbum")
 
-		var trackDataJson structs.TrackData
-		err = json.Unmarshal([]byte(trackDataString), &trackDataJson)
-
+		err := json.Unmarshal([]byte(trackDataString), &trackDataJson)
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		baseFilepath := fmt.Sprint("./", removeAlphaNum(trackDataJson.Artist), "-", removeAlphaNum(trackDataJson.Current.Title))
+		albumArtwork := fmt.Sprint("https://f4.bcbits.com/img/a", trackDataJson.Current.ArtID, "_16.jpg")
+		albumArtworkFilepath := baseFilepath + "/" + removeAlphaNum(trackDataJson.Current.Title) + ".jpg"
 
 		mp3 := structs.Mp3struct{
-			Artist:       trackDataJson.Artist,
-			AlbumTitle:   trackDataJson.Current.Title,
-			ArtID:        trackDataJson.Current.ArtID,
-			AlbumArtwork: fmt.Sprint("https://f4.bcbits.com/img/a", trackDataJson.Current.ArtID, "_16.jpg"),
-			BaseFilepath: fmt.Sprint("./", removeAlphaNum(trackDataJson.Artist), "-", removeAlphaNum(trackDataJson.Current.Title)),
+			Artist:               trackDataJson.Artist,
+			AlbumTitle:           trackDataJson.Current.Title,
+			ArtID:                trackDataJson.Current.ArtID,
+			AlbumArtwork:         albumArtwork,
+			BaseFilepath:         baseFilepath,
+			AlbumArtworkFilepath: albumArtworkFilepath,
 		}
 
-		err := os.Mkdir(mp3.BaseFilepath, 0700)
+		err = os.Mkdir(mp3.BaseFilepath, 0700)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		mp3.Image, err = downloadImage(mp3.BaseFilepath+"/"+removeAlphaNum(mp3.AlbumTitle)+".jpg", mp3.AlbumArtwork)
+		mp3.Image, err = downloadImage(mp3.AlbumArtworkFilepath, mp3.AlbumArtwork)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		var wg sync.WaitGroup
-
-		rot := [4]string{"|", "/", "—", "\\"}
-		ticker := time.NewTicker(200 * time.Millisecond)
-
 		var downloads []string
 
-		pos := 1
-		go func() {
-			fmt.Print("\033[s")
-
-			for range ticker.C {
-				if pos > 3 {
-					pos = 0
-				}
-				fmt.Print("\033[u\033[K")
-				fmt.Print("\r", downloads, " ", rot[pos])
-				pos = pos + 1
-			}
-		}()
-
+		ticker := downloadStatus(&downloads)
 
 		for _, v := range trackDataJson.Trackinfo {
 			wg.Add(1)
@@ -113,10 +86,55 @@ func getArtistPage(url string) {
 	})
 }
 
+func downloadStatus(downloads *[]string) *time.Ticker {
+	rot := [4]string{"|", "/", "—", "\\"}
+	ticker := time.NewTicker(200 * time.Millisecond)
+
+	pos := 1
+
+	go func() {
+		for range ticker.C {
+			if pos > 3 {
+				pos = 0
+			}
+
+			screen.Clear()
+			screen.MoveTopLeft()
+
+			for _, v := range *downloads {
+				fmt.Println(rot[pos], " ", v)
+			}
+			pos = pos + 1
+		}
+	}()
+
+	return ticker
+}
+
+func getArtistPage(url string) {
+	fmt.Println("Getting... ", url)
+
+	res, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	getTrackList(doc)
+}
+
 func downloadMp3(filepath string, url string, mp3 structs.Mp3struct, wg *sync.WaitGroup, downloads *[]string) {
 	defer wg.Done()
 
-	*downloads = append(*downloads, fmt.Sprintf("\"%s - %s\"", mp3.Artist, mp3.Title))
+	*downloads = append(*downloads, fmt.Sprintf("%s - %s", mp3.Artist, mp3.Title))
 
 	resp, err := http.Get(url)
 	if err != nil {
