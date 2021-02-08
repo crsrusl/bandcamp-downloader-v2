@@ -31,6 +31,48 @@ func main() {
 	getArtistPage(argsURL)
 }
 
+func getArtistPage(url string) {
+	log.Println("Getting... ", url)
+
+	client := &http.Client{}
+
+	req, httpRequestError := http.NewRequestWithContext(context.TODO(), "GET", url, nil)
+	if httpRequestError != nil {
+		log.Printf("%s", httpRequestError)
+
+		return
+	}
+
+	res, httpGetError := client.Do(req)
+	if httpGetError != nil {
+		log.Printf("%s", httpGetError)
+
+		return
+	}
+
+	defer func() {
+		err := res.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	if res.StatusCode != http.StatusOK {
+		log.Printf("status code error: %d %s", res.StatusCode, res.Status)
+
+		return
+	}
+
+	doc, documentReaderError := goquery.NewDocumentFromReader(res.Body)
+	if documentReaderError != nil {
+		log.Printf("%s", documentReaderError)
+
+		return
+	}
+
+	getTrackList(doc)
+}
+
 func getTrackList(doc *goquery.Document) {
 	doc.Find("script[data-tralbum]").Each(func(i int, s *goquery.Selection) {
 		var trackData structs.TrackData
@@ -75,40 +117,8 @@ func getTrackList(doc *goquery.Document) {
 
 		ticker.Stop()
 
-		log.Println("\r...Done")
+		log.Println("\r...Done\r")
 	})
-}
-
-func getArtistPage(url string) {
-	log.Println("Getting... ", url)
-
-	res, httpGetError := http.Get(url)
-	if httpGetError != nil {
-		log.Fatal(httpGetError)
-	}
-
-	defer func() {
-		err := res.Body.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	const StatusOK = 200
-	if res.StatusCode != StatusOK {
-		log.Printf("status code error: %d %s", res.StatusCode, res.Status)
-
-		return
-	}
-
-	doc, documentReaderError := goquery.NewDocumentFromReader(res.Body)
-	if documentReaderError != nil {
-		log.Printf("%s", documentReaderError)
-
-		return
-	}
-
-	getTrackList(doc)
 }
 
 func downloadMp3(mp3 structs.TrackData, wg *sync.WaitGroup, downloads *[]string) {
