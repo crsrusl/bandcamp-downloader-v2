@@ -25,4 +25,5 @@ type TrackData struct {
 	CurrentTrackTitle    string
 	CurrentTrackURL      string
 	CurrentTrackFilepath string
+	CurrentTrackNum string
 }

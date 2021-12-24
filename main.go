@@ -100,10 +100,12 @@ func getTrackList(doc *goquery.Document) {
 
 		for _, v := range trackData.Trackinfo {
 			wg.Add(1)
+			trackData.CurrentTrackNum = strconv.Itoa(v.TrackNum)
 			trackData.CurrentTrackTitle = v.Title
 			trackData.CurrentTrackURL = v.File.Mp3128
 			trackData.CurrentTrackFilepath = trackData.BaseFilepath +
-				"/" + removeAlphaNum(trackData.Artist) +
+				"/" + removeAlphaNum(trackData.CurrentTrackNum) + 
+				"-" + removeAlphaNum(trackData.Artist) +
 				"-" + removeAlphaNum(trackData.CurrentTrackTitle) +
 				".mp3"
 			go downloadMp3(trackData, &wg, &downloads)
